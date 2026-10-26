@@ -810,4 +810,120 @@ export default function AdminPage() {
               />
             </div>
 
-            <div
+            <div className="field">
+              <label>Ders özeti</label>
+
+              <textarea
+                value={lessonForm.summary}
+                onChange={(event) =>
+                  setLessonForm({
+                    ...lessonForm,
+                    summary: event.target.value,
+                  })
+                }
+                placeholder="Dersin özetini buraya yaz..."
+              />
+            </div>
+
+            <div className="field">
+              <label>Altın bilgiler</label>
+
+              <textarea
+                value={lessonForm.golden_notes}
+                onChange={(event) =>
+                  setLessonForm({
+                    ...lessonForm,
+                    golden_notes: event.target.value,
+                  })
+                }
+                placeholder={
+                  "Her satıra ayrı bir altın bilgi yaz.\nÖrnek:\nBirinci önemli bilgi\nİkinci önemli bilgi"
+                }
+              />
+            </div>
+
+            <label
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 9,
+              }}
+            >
+              <input
+                type="checkbox"
+                checked={lessonForm.published}
+                onChange={(event) =>
+                  setLessonForm({
+                    ...lessonForm,
+                    published: event.target.checked,
+                  })
+                }
+              />
+
+              Dersi hemen yayımla
+            </label>
+
+            <button className="btn" type="submit">
+              Dersi kaydet
+            </button>
+          </form>
+
+          <div className="list">
+            {lessons.length === 0 && (
+              <div className="notice">
+                Bu kampa henüz ders eklenmemiş.
+              </div>
+            )}
+
+            {lessons.map((lesson) => (
+              <article className="row" key={lesson.id}>
+                <div>
+                  <b>
+                    {lesson.position}. {lesson.title}
+                  </b>
+
+                  <div className="muted" style={{ marginTop: 5 }}>
+                    {lesson.published ? "Yayında" : "Taslak"}
+                  </div>
+                </div>
+
+                <div
+                  style={{
+                    display: "flex",
+                    gap: 8,
+                    flexWrap: "wrap",
+                  }}
+                >
+                  <button
+                    className="tab"
+                    type="button"
+                    onClick={() =>
+                      changeLessonStatus(
+                        lesson.id,
+                        lesson.published
+                      )
+                    }
+                  >
+                    {lesson.published
+                      ? "Taslağa al"
+                      : "Yayımla"}
+                  </button>
+
+                  <button
+                    className="btn danger"
+                    type="button"
+                    onClick={() =>
+                      deleteLesson(lesson.id, lesson.title)
+                    }
+                  >
+                    Sil
+                  </button>
+                </div>
+              </article>
+            ))}
+          </div>
+        </section>
+      )}
+    </main>
+  );
+}
