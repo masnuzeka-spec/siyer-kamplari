@@ -1,12 +1,8 @@
-# Siyer Kampları
+# Siyer Kampları v2
+Yönetici girişi, kamp ekleme, haricî yönlendirme, platform içi kamp ve ders/altın bilgi yönetimi içerir.
 
-Ana portalın Vercel'e hazır ilk sürümüdür. İki mevcut kamp haricî bağlantı olarak eklenmiştir. Supabase şeması, sonraki platform içi kamp ve yönetim paneli aşaması için eklenmiştir.
-
-## Vercel'e yayınlama
-1. Projeyi GitHub deposuna yükleyin.
-2. Vercel > Add New Project ile depoyu seçin.
-3. Deploy düğmesine basın.
-4. İstenen proje adı doluysa `siyer-kamplari` veya benzeri bir ad seçin.
-
-## Yerelde çalıştırma
-`npm install` ardından `npm run dev`.
+## Kurulum
+1. `admin-yetki.sql` dosyasını Supabase SQL Editor'de çalıştırın.
+2. Bütün proje dosyalarını GitHub'a aynı klasör yollarıyla yükleyin.
+3. Vercel otomatik olarak yeniden dağıtım yapar.
+4. `/admin` adresinden giriş yapın.
