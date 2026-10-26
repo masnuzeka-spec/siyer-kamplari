@@ -45,7 +45,7 @@ function createSlug(value: string) {
     .replace(/^-+|-+$/g, "");
 }
 
-function statusName(status: CampStatus) {
+function getStatusName(status: CampStatus) {
   const names: Record<CampStatus, string> = {
     draft: "Taslak",
     published: "Yayında",
@@ -56,10 +56,12 @@ function statusName(status: CampStatus) {
   return names[status];
 }
 
-function typeName(type: CampType) {
-  return type === "internal"
-    ? "Platform içi kamp"
-    : "Mevcut siteye yönlendirme";
+function getTypeName(type: CampType) {
+  if (type === "internal") {
+    return "Platform içi kamp";
+  }
+
+  return "Mevcut siteye yönlendirme";
 }
 
 export default function AdminPage() {
@@ -95,7 +97,7 @@ export default function AdminPage() {
   });
 
   useEffect(() => {
-    async function getCurrentSession() {
+    async function checkSession() {
       const {
         data: { session: currentSession },
       } = await supabase.auth.getSession();
@@ -104,7 +106,7 @@ export default function AdminPage() {
       setLoading(false);
     }
 
-    getCurrentSession();
+    checkSession();
 
     const {
       data: { subscription },
@@ -145,9 +147,15 @@ export default function AdminPage() {
     }, 6000);
   }
 
+  function goHome() {
+    window.location.href = "/";
+  }
+
   async function login(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    showMessage("Giriş yapılıyor...");
+
+    setMessage("Giriş yapılıyor...");
+    setIsError(false);
 
     const { data, error } = await supabase.auth.signInWithPassword({
       email: email.trim(),
@@ -161,7 +169,12 @@ export default function AdminPage() {
 
     if (data.user?.email !== ADMIN_EMAIL) {
       await supabase.auth.signOut();
-      showMessage("Bu hesabın yönetici yetkisi bulunmuyor.", true);
+
+      showMessage(
+        "Bu hesabın yönetici yetkisi bulunmuyor.",
+        true
+      );
+
       return;
     }
 
@@ -185,7 +198,11 @@ export default function AdminPage() {
       .order("created_at", { ascending: false });
 
     if (error) {
-      showMessage(`Kamplar alınamadı: ${error.message}`, true);
+      showMessage(
+        `Kamplar yüklenemedi: ${error.message}`,
+        true
+      );
+
       return;
     }
 
@@ -200,7 +217,11 @@ export default function AdminPage() {
       .order("position", { ascending: true });
 
     if (error) {
-      showMessage(`Dersler alınamadı: ${error.message}`, true);
+      showMessage(
+        `Dersler yüklenemedi: ${error.message}`,
+        true
+      );
+
       return;
     }
 
@@ -211,7 +232,8 @@ export default function AdminPage() {
     event.preventDefault();
 
     const title = campForm.title.trim();
-    const slug = campForm.slug.trim() || createSlug(title);
+    const slug =
+      campForm.slug.trim() || createSlug(campForm.title);
 
     if (!title) {
       showMessage("Kamp adını yazmalısın.", true);
@@ -219,7 +241,11 @@ export default function AdminPage() {
     }
 
     if (!slug) {
-      showMessage("Geçerli bir kamp adresi oluşturulamadı.", true);
+      showMessage(
+        "Geçerli bir kamp adresi oluşturulamadı.",
+        true
+      );
+
       return;
     }
 
@@ -227,7 +253,11 @@ export default function AdminPage() {
       campForm.type === "external" &&
       !campForm.external_url.trim()
     ) {
-      showMessage("Yönlendirilecek site adresini yazmalısın.", true);
+      showMessage(
+        "Yönlendirilecek site adresini yazmalısın.",
+        true
+      );
+
       return;
     }
 
@@ -243,10 +273,23 @@ export default function AdminPage() {
       status: campForm.status,
     };
 
-    const { error } = await supabase.from("camps").insert(payload);
+    const { error } = await supabase
+      .from("camps")
+      .insert(payload);
 
     if (error) {
-      showMessage(`Kamp eklenemedi: ${error.message}`, true);
+      if (error.message.toLowerCase().includes("duplicate")) {
+        showMessage(
+          "Bu adres kısa adı daha önce kullanılmış.",
+          true
+        );
+      } else {
+        showMessage(
+          `Kamp eklenemedi: ${error.message}`,
+          true
+        );
+      }
+
       return;
     }
 
@@ -269,11 +312,17 @@ export default function AdminPage() {
   ) {
     const { error } = await supabase
       .from("camps")
-      .update({ status: newStatus })
+      .update({
+        status: newStatus,
+      })
       .eq("id", campId);
 
     if (error) {
-      showMessage(`Kamp güncellenemedi: ${error.message}`, true);
+      showMessage(
+        `Kamp durumu değiştirilemedi: ${error.message}`,
+        true
+      );
+
       return;
     }
 
@@ -281,12 +330,17 @@ export default function AdminPage() {
     await loadCamps();
   }
 
-  async function deleteCamp(campId: string, campTitle: string) {
+  async function deleteCamp(
+    campId: string,
+    campTitle: string
+  ) {
     const approved = window.confirm(
       `"${campTitle}" kampını silmek istediğine emin misin?`
     );
 
-    if (!approved) return;
+    if (!approved) {
+      return;
+    }
 
     const { error } = await supabase
       .from("camps")
@@ -294,7 +348,11 @@ export default function AdminPage() {
       .eq("id", campId);
 
     if (error) {
-      showMessage(`Kamp silinemedi: ${error.message}`, true);
+      showMessage(
+        `Kamp silinemedi: ${error.message}`,
+        true
+      );
+
       return;
     }
 
@@ -307,16 +365,24 @@ export default function AdminPage() {
     await loadCamps();
   }
 
-  async function addLesson(event: FormEvent<HTMLFormElement>) {
+  async function addLesson(
+    event: FormEvent<HTMLFormElement>
+  ) {
     event.preventDefault();
 
     if (!selectedCampId) {
-      showMessage("Önce bir platform içi kamp seçmelisin.", true);
+      showMessage(
+        "Önce bir platform içi kamp seçmelisin.",
+        true
+      );
+
       return;
     }
 
     const title = lessonForm.title.trim();
-    const slug = lessonForm.slug.trim() || createSlug(title);
+    const slug =
+      lessonForm.slug.trim() ||
+      createSlug(lessonForm.title);
 
     if (!title) {
       showMessage("Ders başlığını yazmalısın.", true);
@@ -324,7 +390,11 @@ export default function AdminPage() {
     }
 
     if (!slug) {
-      showMessage("Geçerli bir ders adresi oluşturulamadı.", true);
+      showMessage(
+        "Geçerli bir ders adresi oluşturulamadı.",
+        true
+      );
+
       return;
     }
 
@@ -343,10 +413,23 @@ export default function AdminPage() {
       published: lessonForm.published,
     };
 
-    const { error } = await supabase.from("lessons").insert(payload);
+    const { error } = await supabase
+      .from("lessons")
+      .insert(payload);
 
     if (error) {
-      showMessage(`Ders eklenemedi: ${error.message}`, true);
+      if (error.message.toLowerCase().includes("duplicate")) {
+        showMessage(
+          "Bu ders adresi daha önce kullanılmış.",
+          true
+        );
+      } else {
+        showMessage(
+          `Ders eklenemedi: ${error.message}`,
+          true
+        );
+      }
+
       return;
     }
 
@@ -369,19 +452,25 @@ export default function AdminPage() {
   ) {
     const { error } = await supabase
       .from("lessons")
-      .update({ published: !currentlyPublished })
+      .update({
+        published: !currentlyPublished,
+      })
       .eq("id", lessonId);
 
     if (error) {
-      showMessage(`Ders güncellenemedi: ${error.message}`, true);
+      showMessage(
+        `Ders güncellenemedi: ${error.message}`,
+        true
+      );
+
       return;
     }
 
-    showMessage(
-      currentlyPublished
-        ? "Ders taslağa alındı."
-        : "Ders yayımlandı."
-    );
+    if (currentlyPublished) {
+      showMessage("Ders taslağa alındı.");
+    } else {
+      showMessage("Ders yayımlandı.");
+    }
 
     await loadLessons(selectedCampId);
   }
@@ -394,7 +483,9 @@ export default function AdminPage() {
       `"${lessonTitle}" dersini silmek istediğine emin misin?`
     );
 
-    if (!approved) return;
+    if (!approved) {
+      return;
+    }
 
     const { error } = await supabase
       .from("lessons")
@@ -402,7 +493,11 @@ export default function AdminPage() {
       .eq("id", lessonId);
 
     if (error) {
-      showMessage(`Ders silinemedi: ${error.message}`, true);
+      showMessage(
+        `Ders silinemedi: ${error.message}`,
+        true
+      );
+
       return;
     }
 
@@ -440,7 +535,9 @@ export default function AdminPage() {
             Siyer Kampları
           </div>
 
-          <h1 className="pageTitle">Yönetici Girişi</h1>
+          <h1 className="pageTitle">
+            Yönetici Girişi
+          </h1>
 
           <p className="muted">
             Kamp, ders ve içerik yönetimi
@@ -464,7 +561,9 @@ export default function AdminPage() {
               <input
                 type="email"
                 value={email}
-                onChange={(event) => setEmail(event.target.value)}
+                onChange={(event) =>
+                  setEmail(event.target.value)
+                }
                 autoComplete="email"
                 required
               />
@@ -484,14 +583,24 @@ export default function AdminPage() {
               />
             </div>
 
-            <button className="btn full" type="submit">
+            <button
+              className="btn full"
+              type="submit"
+            >
               Yönetim paneline gir
             </button>
           </form>
 
-          /
+          <button
+            className="tab"
+            type="button"
+            onClick={goHome}
+            style={{
+              marginTop: 18,
+            }}
+          >
             ← Ana sayfaya dön
-          </a>
+          </button>
         </section>
       </main>
     );
@@ -519,7 +628,9 @@ export default function AdminPage() {
             Yönetim Paneli
           </h1>
 
-          <div className="muted">{session.user.email}</div>
+          <div className="muted">
+            {session.user.email}
+          </div>
         </div>
 
         <div
@@ -529,9 +640,13 @@ export default function AdminPage() {
             flexWrap: "wrap",
           }}
         >
-          /
+          <button
+            className="btn"
+            type="button"
+            onClick={goHome}
+          >
             Siteyi görüntüle
-          </a>
+          </button>
 
           <button
             className="tab"
@@ -562,11 +677,14 @@ export default function AdminPage() {
         <h2>Yeni Kamp Ekle</h2>
 
         <p className="muted">
-          Kampı platform içinde oluşturabilir veya hazır bir siteye
-          yönlendirebilirsin.
+          Kampı platform içinde oluşturabilir veya hazır
+          bir siteye yönlendirebilirsin.
         </p>
 
-        <form className="form" onSubmit={addCamp}>
+        <form
+          className="form"
+          onSubmit={addCamp}
+        >
           <div className="two">
             <div className="field">
               <label>Kamp adı</label>
@@ -647,21 +765,35 @@ export default function AdminPage() {
                 onChange={(event) =>
                   setCampForm({
                     ...campForm,
-                    status: event.target.value as CampStatus,
+                    status:
+                      event.target.value as CampStatus,
                   })
                 }
               >
-                <option value="draft">Taslak</option>
-                <option value="published">Yayında</option>
-                <option value="upcoming">Yakında</option>
-                <option value="completed">Tamamlandı</option>
+                <option value="draft">
+                  Taslak
+                </option>
+
+                <option value="published">
+                  Yayında
+                </option>
+
+                <option value="upcoming">
+                  Yakında
+                </option>
+
+                <option value="completed">
+                  Tamamlandı
+                </option>
               </select>
             </div>
           </div>
 
           {campForm.type === "external" && (
             <div className="field">
-              <label>Yönlendirilecek site adresi</label>
+              <label>
+                Yönlendirilecek site adresi
+              </label>
 
               <input
                 type="url"
@@ -678,7 +810,10 @@ export default function AdminPage() {
             </div>
           )}
 
-          <button className="btn" type="submit">
+          <button
+            className="btn"
+            type="submit"
+          >
             Kampı kaydet
           </button>
         </form>
@@ -694,13 +829,17 @@ export default function AdminPage() {
 
         {camps.length === 0 && (
           <div className="notice">
-            Henüz yönetim panelinden eklenmiş kamp bulunmuyor.
+            Henüz yönetim panelinden eklenmiş kamp
+            bulunmuyor.
           </div>
         )}
 
         <div className="list">
           {camps.map((camp) => (
-            <article className="row" key={camp.id}>
+            <article
+              className="row"
+              key={camp.id}
+            >
               <div>
                 <b>{camp.title}</b>
 
@@ -710,7 +849,8 @@ export default function AdminPage() {
                     marginTop: 5,
                   }}
                 >
-                  {typeName(camp.type)} • {statusName(camp.status)}
+                  {getTypeName(camp.type)} •{" "}
+                  {getStatusName(camp.status)}
                 </div>
 
                 <div className="muted">
@@ -743,22 +883,37 @@ export default function AdminPage() {
                   onChange={(event) =>
                     changeCampStatus(
                       camp.id,
-                      event.target.value as CampStatus
+                      event.target
+                        .value as CampStatus
                     )
                   }
                   aria-label="Kamp durumunu değiştir"
                 >
-                  <option value="draft">Taslak</option>
-                  <option value="published">Yayında</option>
-                  <option value="upcoming">Yakında</option>
-                  <option value="completed">Tamamlandı</option>
+                  <option value="draft">
+                    Taslak
+                  </option>
+
+                  <option value="published">
+                    Yayında
+                  </option>
+
+                  <option value="upcoming">
+                    Yakında
+                  </option>
+
+                  <option value="completed">
+                    Tamamlandı
+                  </option>
                 </select>
 
                 <button
                   className="btn danger"
                   type="button"
                   onClick={() =>
-                    deleteCamp(camp.id, camp.title)
+                    deleteCamp(
+                      camp.id,
+                      camp.title
+                    )
                   }
                 >
                   Sil
@@ -781,20 +936,26 @@ export default function AdminPage() {
               <h2>Ders Yönetimi</h2>
 
               <p className="muted">
-                Seçilen kamp: <b>{selectedCamp.title}</b>
+                Seçilen kamp:{" "}
+                <b>{selectedCamp.title}</b>
               </p>
             </div>
 
             <button
               className="tab"
               type="button"
-              onClick={() => setSelectedCampId("")}
+              onClick={() =>
+                setSelectedCampId("")
+              }
             >
               Kapat
             </button>
           </div>
 
-          <form className="form" onSubmit={addLesson}>
+          <form
+            className="form"
+            onSubmit={addLesson}
+          >
             <div className="two">
               <div className="field">
                 <label>Ders başlığı</label>
@@ -822,7 +983,9 @@ export default function AdminPage() {
                   onChange={(event) =>
                     setLessonForm({
                       ...lessonForm,
-                      position: Number(event.target.value),
+                      position: Number(
+                        event.target.value
+                      ),
                     })
                   }
                   required
@@ -868,7 +1031,8 @@ export default function AdminPage() {
                 onChange={(event) =>
                   setLessonForm({
                     ...lessonForm,
-                    golden_notes: event.target.value,
+                    golden_notes:
+                      event.target.value,
                   })
                 }
                 placeholder={
@@ -890,7 +1054,8 @@ export default function AdminPage() {
                 onChange={(event) =>
                   setLessonForm({
                     ...lessonForm,
-                    published: event.target.checked,
+                    published:
+                      event.target.checked,
                   })
                 }
               />
@@ -898,7 +1063,10 @@ export default function AdminPage() {
               Dersi hemen yayımla
             </label>
 
-            <button className="btn" type="submit">
+            <button
+              className="btn"
+              type="submit"
+            >
               Dersi kaydet
             </button>
           </form>
@@ -911,10 +1079,14 @@ export default function AdminPage() {
             )}
 
             {lessons.map((lesson) => (
-              <article className="row" key={lesson.id}>
+              <article
+                className="row"
+                key={lesson.id}
+              >
                 <div>
                   <b>
-                    {lesson.position}. {lesson.title}
+                    {lesson.position}.{" "}
+                    {lesson.title}
                   </b>
 
                   <div
@@ -923,7 +1095,9 @@ export default function AdminPage() {
                       marginTop: 5,
                     }}
                   >
-                    {lesson.published ? "Yayında" : "Taslak"}
+                    {lesson.published
+                      ? "Yayında"
+                      : "Taslak"}
                   </div>
                 </div>
 
